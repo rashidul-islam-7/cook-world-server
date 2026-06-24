@@ -4,7 +4,7 @@ const app = express();
 
 const cors = require("cors");
 const dotenv = require("dotenv");
-const { MongoClient } = require('mongodb');
+const { MongoClient, ObjectId } = require('mongodb');
 
 app.use(cors());
 app.use(express.json());
@@ -22,13 +22,31 @@ app.get('/', (req, res) => {
 
 
 async function run(){
-try{}
+try{
+    const db = client.db("cook-world-data");
+    const allRecipeCollection = db.collection("allRecipe");
+
+    // get all recipe data 
+    app.get("/recipes", async (req, res)=>{
+        const result = await allRecipeCollection.find().toArray();
+        res.send(result);
+    });
+
+    // get recipe with id 
+    app.get("/recipes/:id", async (req, res)=>{
+        const id = req.params.id;
+        const result = await allRecipeCollection.findOne({
+            _id: new ObjectId(id)
+        });
+        res.send(result);
+    })
+}
 catch(e){
     console.log(e)
 }
 }
 
-run().catch(console.log(e));
+run();
 
 
 app.listen(port, () => {
