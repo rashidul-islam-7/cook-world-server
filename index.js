@@ -39,6 +39,12 @@ try{
             _id: new ObjectId(id)
         });
         res.send(result);
+    });
+
+    // post recipe 
+    app.post("/recipes", async (req, res)=>{
+        const result = await allRecipeCollection.insertOne(req.body);
+        res.send(result);
     })
 }
 catch(e){
