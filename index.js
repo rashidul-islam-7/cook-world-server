@@ -45,7 +45,7 @@ async function run() {
       res.send(result);
     });
 
-    // get my-recipe 
+    // get my-recipe
     app.get("/my-recipes", async (req, res) => {
       const email = req.query.email;
 
@@ -56,6 +56,31 @@ async function run() {
       res.send(result);
     });
 
+    // delete my-recipe
+    app.delete("/recipes/:id", async (req, res) => {
+      const id = req.params;
+      const result = await allRecipeCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send(result);
+    });
+
+app.patch("/recipes/:id", async (req, res) => {
+  const { id } = req.params;
+  const updateData = req.body;
+
+  const result = await allRecipeCollection.updateOne(
+    {
+      _id: new ObjectId(id),
+    },
+    {
+      $set: updateData,
+    }
+  );
+
+  res.send(result);
+});
 
 
   } catch (e) {
