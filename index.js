@@ -66,23 +66,22 @@ async function run() {
       res.send(result);
     });
 
-app.patch("/recipes/:id", async (req, res) => {
-  const { id } = req.params;
-  const updateData = req.body;
+    //update my-recipe
+    app.patch("/recipes/:id", async (req, res) => {
+      const { id } = req.params;
+      const updateData = req.body;
 
-  const result = await allRecipeCollection.updateOne(
-    {
-      _id: new ObjectId(id),
-    },
-    {
-      $set: updateData,
-    }
-  );
+      const result = await allRecipeCollection.updateOne(
+        {
+          _id: new ObjectId(id),
+        },
+        {
+          $set: updateData,
+        },
+      );
 
-  res.send(result);
-});
-
-
+      res.send(result);
+    });
   } catch (e) {
     console.log(e);
   }
