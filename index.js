@@ -23,6 +23,7 @@ async function run() {
   try {
     const db = client.db("cook-world-data");
     const cookWorldUsers = client.db("cook-world-users");
+    const recipeLikesCollection = db.collection("recipeLikes");
 
     const allRecipeCollection = db.collection("allRecipe");
     const usersCollection = cookWorldUsers.collection("user");
@@ -106,6 +107,96 @@ async function run() {
 
       res.send(result);
     });
+
+    //recipe like
+    app.post("/recipes/:id/like", async (req, res) => {
+      const { id } = req.params;
+      const { userEmail } = req.body;
+
+      const existingLike = await recipeLikesCollection.findOne({
+        recipeId: new ObjectId(id),
+        userEmail,
+      });
+
+      // Unlike
+      if (existingLike) {
+        await recipeLikesCollection.deleteOne({
+          _id: existingLike._id,
+        });
+
+        await allRecipeCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $inc: {
+              likesCount: -1,
+            },
+          },
+        );
+
+        const updatedRecipe = await allRecipeCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        return res.send({
+          liked: false,
+          likesCount: updatedRecipe.likesCount,
+        });
+      }
+
+      // Like
+      await recipeLikesCollection.insertOne({
+        recipeId: new ObjectId(id),
+        userEmail,
+        createdAt: new Date(),
+      });
+
+      await allRecipeCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $inc: {
+            likesCount: 1,
+          },
+        },
+      );
+
+      const updatedRecipe = await allRecipeCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send({
+        liked: true,
+        likesCount: updatedRecipe.likesCount,
+      });
+      await allRecipeCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $inc: {
+            likesCount: 1,
+          },
+        },
+      );
+
+      res.send({
+        liked: true,
+        message: "Recipe liked",
+      });
+    });
+
+    app.get("/recipes/:id/like-status", async (req, res) => {
+      const { id } = req.params;
+      const { userEmail } = req.query;
+
+      const liked = await recipeLikesCollection.findOne({
+        recipeId: new ObjectId(id),
+        userEmail,
+      });
+
+      res.send({
+        liked: !!liked,
+      });
+    });
+
+    
   } catch (e) {
     console.log(e);
   }
