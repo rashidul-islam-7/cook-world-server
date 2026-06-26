@@ -22,7 +22,10 @@ app.get("/", (req, res) => {
 async function run() {
   try {
     const db = client.db("cook-world-data");
+    const cookWorldUsers = client.db("cook-world-users");
+
     const allRecipeCollection = db.collection("allRecipe");
+    const usersCollection = cookWorldUsers.collection("user");
 
     // get all recipe data
     app.get("/recipes", async (req, res) => {
@@ -41,7 +44,28 @@ async function run() {
 
     // post recipe
     app.post("/recipes", async (req, res) => {
-      const result = await allRecipeCollection.insertOne(req.body);
+      const recipe = req.body;
+      const email = recipe.authorEmail;
+
+      // User find
+      const user = await usersCollection.findOne({ email });
+
+      // Recipe count
+      const recipeCount = await allRecipeCollection.countDocuments({
+        authorEmail: email,
+      });
+
+      // Free user limit
+      if (!user?.isPremium && recipeCount >= 2) {
+        return res.status(403).send({
+          message:
+            "You have reached the free limit. Upgrade to Premium to add unlimited recipes.",
+        });
+      }
+
+      // Insert recipe
+      const result = await allRecipeCollection.insertOne(recipe);
+
       res.send(result);
     });
 
