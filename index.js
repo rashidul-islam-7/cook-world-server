@@ -24,6 +24,7 @@ async function run() {
     const db = client.db("cook-world-data");
     const cookWorldUsers = client.db("cook-world-users");
     const recipeLikesCollection = db.collection("recipeLikes");
+    const recipeFavoritesCollection = db.collection("recipeFavorites");
 
     const allRecipeCollection = db.collection("allRecipe");
     const usersCollection = cookWorldUsers.collection("user");
@@ -108,7 +109,8 @@ async function run() {
       res.send(result);
     });
 
-    //recipe like
+    
+    // Toggle Like
     app.post("/recipes/:id/like", async (req, res) => {
       const { id } = req.params;
       const { userEmail } = req.body;
@@ -125,7 +127,10 @@ async function run() {
         });
 
         await allRecipeCollection.updateOne(
-          { _id: new ObjectId(id) },
+          {
+            _id: new ObjectId(id),
+            likesCount: { $gt: 0 }, // Prevent negative count
+          },
           {
             $inc: {
               likesCount: -1,
@@ -163,40 +168,116 @@ async function run() {
         _id: new ObjectId(id),
       });
 
-      res.send({
+      return res.send({
         liked: true,
         likesCount: updatedRecipe.likesCount,
       });
-      await allRecipeCollection.updateOne(
-        { _id: new ObjectId(id) },
-        {
-          $inc: {
-            likesCount: 1,
-          },
-        },
-      );
-
-      res.send({
-        liked: true,
-        message: "Recipe liked",
-      });
     });
 
+    // Like Status
     app.get("/recipes/:id/like-status", async (req, res) => {
       const { id } = req.params;
       const { userEmail } = req.query;
 
-      const liked = await recipeLikesCollection.findOne({
+      const like = await recipeLikesCollection.findOne({
         recipeId: new ObjectId(id),
         userEmail,
       });
 
       res.send({
-        liked: !!liked,
+        liked: !!like,
       });
     });
 
-    
+    // Toggle Favorite
+    app.post("/recipes/:id/favorite", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { userEmail } = req.body;
+
+        const existingFavorite = await recipeFavoritesCollection.findOne({
+          recipeId: new ObjectId(id),
+          userEmail,
+        });
+
+        // Remove Favorite
+        if (existingFavorite) {
+          await recipeFavoritesCollection.deleteOne({
+            _id: existingFavorite._id,
+          });
+
+          await allRecipeCollection.updateOne(
+            { _id: new ObjectId(id) },
+            {
+              $inc: {
+                favoriteCount: -1,
+              },
+            },
+          );
+
+          const updatedRecipe = await allRecipeCollection.findOne({
+            _id: new ObjectId(id),
+          });
+
+          return res.send({
+            isFavorite: false,
+            favoriteCount: updatedRecipe.favoriteCount,
+          });
+        }
+
+        // Add Favorite
+        await recipeFavoritesCollection.insertOne({
+          recipeId: new ObjectId(id),
+          userEmail,
+          createdAt: new Date(),
+        });
+
+        await allRecipeCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $inc: {
+              favoriteCount: 1,
+            },
+          },
+        );
+
+        const updatedRecipe = await allRecipeCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        return res.send({
+          isFavorite: true,
+          favoriteCount: updatedRecipe.favoriteCount,
+        });
+      } catch (error) {
+        console.log(error);
+        res.status(500).send({
+          message: "Something went wrong",
+        });
+      }
+    });
+
+    // Favorite Status
+    app.get("/recipes/:id/favorite-status", async (req, res) => {
+      try {
+        const { id } = req.params;
+        const { userEmail } = req.query;
+
+        const favorite = await recipeFavoritesCollection.findOne({
+          recipeId: new ObjectId(id),
+          userEmail,
+        });
+
+        res.send({
+          isFavorite: !!favorite,
+        });
+      } catch (error) {
+        console.log(error);
+        res.status(500).send({
+          message: "Something went wrong",
+        });
+      }
+    });
   } catch (e) {
     console.log(e);
   }
