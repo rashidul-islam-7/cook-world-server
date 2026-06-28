@@ -25,6 +25,8 @@ async function run() {
     const cookWorldUsers = client.db("cook-world-users");
     const recipeLikesCollection = db.collection("recipeLikes");
     const recipeFavoritesCollection = db.collection("recipeFavorites");
+    const recipePurchasesCollection = db.collection("recipePurchases");
+    const subscriptionsCollection = db.collection("subscriptions");
 
     const allRecipeCollection = db.collection("allRecipe");
     const usersCollection = cookWorldUsers.collection("user");
@@ -109,7 +111,6 @@ async function run() {
       res.send(result);
     });
 
-    
     // Toggle Like
     app.post("/recipes/:id/like", async (req, res) => {
       const { id } = req.params;
@@ -207,7 +208,10 @@ async function run() {
           });
 
           await allRecipeCollection.updateOne(
-            { _id: new ObjectId(id) },
+            {
+              _id: new ObjectId(id),
+              favoriteCount: { $gt: 0 },
+            },
             {
               $inc: {
                 favoriteCount: -1,
@@ -278,10 +282,94 @@ async function run() {
         });
       }
     });
+
+    // my-favorite
+    app.get("/my-favorites", async (req, res) => {
+      const { userEmail } = req.query;
+
+      const favorites = await recipeFavoritesCollection
+        .find({ userEmail })
+        .toArray();
+
+      const recipeIds = favorites.map((item) => item.recipeId);
+
+      const recipes = await allRecipeCollection
+        .find({
+          _id: { $in: recipeIds },
+        })
+        .toArray();
+
+      res.send(recipes);
+    });
+
+    // purchases recipe
+    app.get("/my-purchases", async (req, res) => {
+      const { userEmail } = req.query;
+
+      const purchases = await recipePurchasesCollection
+        .find({ userEmail })
+        .toArray();
+
+      const recipeIds = purchases.map((item) => item.recipeId);
+
+      const recipes = await allRecipeCollection
+        .find({
+          _id: { $in: recipeIds },
+        })
+        .toArray();
+
+      res.send(recipes);
+    });
+
+    // user premium api 
+    app.post("/subscription", async (req, res) => {
+      const { sessionId, userId, priceId } = req.body;
+
+      if (!sessionId || !userId || !priceId) {
+        return res.status(400).send({
+          success: false,
+          message: "Missing required fields",
+        });
+      }
+
+      const isExist = await subscriptionsCollection.findOne({ sessionId });
+
+      if (isExist) {
+        return res.status(200).send({
+          success: true,
+          message: "Subscription already exists",
+        });
+      }
+
+      const result = await subscriptionsCollection.insertOne({
+        sessionId,
+        userId,
+        priceId,
+        createdAt: new Date(),
+      });
+
+      await usersCollection.updateOne(
+        { _id: new ObjectId(userId) },
+        {
+          $set: {
+            isPremium: true,
+          },
+        },
+      );
+
+      res.status(201).send({
+        success: true,
+        message: "Subscription added successfully",
+        insertedId: result.insertedId,
+      });
+    });
+
   } catch (e) {
     console.log(e);
   }
 }
+
+
 
 run();
 
