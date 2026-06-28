@@ -27,6 +27,7 @@ async function run() {
     const recipeFavoritesCollection = db.collection("recipeFavorites");
     const recipePurchasesCollection = db.collection("recipePurchases");
     const subscriptionsCollection = db.collection("subscriptions");
+    const purchasedRecipesCollection = db.collection("purchasedRecipes");
 
     const allRecipeCollection = db.collection("allRecipe");
     const usersCollection = cookWorldUsers.collection("user");
@@ -363,6 +364,57 @@ async function run() {
         insertedId: result.insertedId,
       });
     });
+
+
+  // purchase recipe api
+app.post("/purchase-recipe-payment", async (req, res) => {
+  const { sessionId, userId, recipeId, recipeName, authorName, recipeImage, price } = req.body;
+
+  if (!sessionId || !userId || !recipeId) {
+    return res.status(400).send({
+      success: false,
+      message: "Missing required fields",
+    });
+  }
+
+  const isExist = await purchasedRecipesCollection.findOne({ sessionId });
+
+  if (isExist) {
+    return res.status(200).send({
+      success: true,
+      message: "Recipe purchase already recorded",
+    });
+  }
+
+  const result = await purchasedRecipesCollection.insertOne({
+    sessionId,
+    userId,
+    recipeId,
+    recipeName,
+    authorName,
+    recipeImage,
+    price: Number(price),
+    createdAt: new Date(),
+  });
+
+
+  res.status(201).send({
+    success: true,
+    message: "Recipe purchased successfully",
+    insertedId: result.insertedId,
+  });
+});
+
+app.get("/purchased-recipes/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  const result = await purchasedRecipesCollection
+    .find({ userId })
+    .sort({ createdAt: -1 })
+    .toArray();
+
+  res.send(result);
+});
     
 
   } catch (e) {
