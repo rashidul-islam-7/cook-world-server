@@ -363,6 +363,7 @@ async function run() {
         insertedId: result.insertedId,
       });
     });
+    
 
   } catch (e) {
     console.log(e);
