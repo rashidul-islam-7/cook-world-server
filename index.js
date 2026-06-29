@@ -442,6 +442,19 @@ async function run() {
         totalReports,
       });
     });
+
+    // admin users list api
+    app.get("/admin/users", async (req, res) => {
+      const users = await usersCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      res.send(users);
+    });
+
+
+    
   } catch (e) {
     console.log(e);
   }
