@@ -28,7 +28,7 @@ async function run() {
     const recipePurchasesCollection = db.collection("recipePurchases");
     const subscriptionsCollection = db.collection("subscriptions");
     const purchasedRecipesCollection = db.collection("purchasedRecipes");
-
+    const reportsCollection = db.collection("reportsRecipes");
     const allRecipeCollection = db.collection("allRecipe");
     const usersCollection = cookWorldUsers.collection("user");
 
@@ -322,7 +322,7 @@ async function run() {
       res.send(recipes);
     });
 
-    // user premium api 
+    // user premium api
     app.post("/subscription", async (req, res) => {
       const { sessionId, userId, priceId } = req.body;
 
@@ -365,64 +365,87 @@ async function run() {
       });
     });
 
+    // purchase recipe api
+    app.post("/purchase-recipe-payment", async (req, res) => {
+      const {
+        sessionId,
+        userId,
+        recipeId,
+        recipeName,
+        authorName,
+        recipeImage,
+        price,
+      } = req.body;
 
-  // purchase recipe api
-app.post("/purchase-recipe-payment", async (req, res) => {
-  const { sessionId, userId, recipeId, recipeName, authorName, recipeImage, price } = req.body;
+      if (!sessionId || !userId || !recipeId) {
+        return res.status(400).send({
+          success: false,
+          message: "Missing required fields",
+        });
+      }
 
-  if (!sessionId || !userId || !recipeId) {
-    return res.status(400).send({
-      success: false,
-      message: "Missing required fields",
+      const isExist = await purchasedRecipesCollection.findOne({ sessionId });
+
+      if (isExist) {
+        return res.status(200).send({
+          success: true,
+          message: "Recipe purchase already recorded",
+        });
+      }
+
+      const result = await purchasedRecipesCollection.insertOne({
+        sessionId,
+        userId,
+        recipeId,
+        recipeName,
+        authorName,
+        recipeImage,
+        price: Number(price),
+        createdAt: new Date(),
+      });
+
+      res.status(201).send({
+        success: true,
+        message: "Recipe purchased successfully",
+        insertedId: result.insertedId,
+      });
     });
-  }
 
-  const isExist = await purchasedRecipesCollection.findOne({ sessionId });
+    //get purchased recipe api
+    app.get("/purchased-recipes/:userId", async (req, res) => {
+      const { userId } = req.params;
 
-  if (isExist) {
-    return res.status(200).send({
-      success: true,
-      message: "Recipe purchase already recorded",
+      const result = await purchasedRecipesCollection
+        .find({ userId })
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      res.send(result);
     });
-  }
 
-  const result = await purchasedRecipesCollection.insertOne({
-    sessionId,
-    userId,
-    recipeId,
-    recipeName,
-    authorName,
-    recipeImage,
-    price: Number(price),
-    createdAt: new Date(),
-  });
+    // admin dashboard overview api
+    app.get("/admin/dashboard", async (req, res) => {
+      const totalUsers = await usersCollection.countDocuments();
 
+      const totalRecipes = await allRecipeCollection.countDocuments();
 
-  res.status(201).send({
-    success: true,
-    message: "Recipe purchased successfully",
-    insertedId: result.insertedId,
-  });
-});
+      const totalPremiumMembers = await usersCollection.countDocuments({
+        isPremium: true,
+      });
 
-app.get("/purchased-recipes/:userId", async (req, res) => {
-  const { userId } = req.params;
+      const totalReports = await reportsCollection.countDocuments();
 
-  const result = await purchasedRecipesCollection
-    .find({ userId })
-    .sort({ createdAt: -1 })
-    .toArray();
-
-  res.send(result);
-});
-    
-
+      res.send({
+        totalUsers,
+        totalRecipes,
+        totalPremiumMembers,
+        totalReports,
+      });
+    });
   } catch (e) {
     console.log(e);
   }
 }
-
-
 
 run();
 
