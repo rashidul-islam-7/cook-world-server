@@ -453,8 +453,37 @@ async function run() {
       res.send(users);
     });
 
+    // user block api
+    app.patch("/admin/users/block/:id", async (req, res) => {
+      const { id } = req.params;
 
-    
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            isBlocked: true,
+          },
+        },
+      );
+
+      res.send(result);
+    });
+
+    // user unblock api
+    app.patch("/admin/users/unblock/:id", async (req, res) => {
+      const { id } = req.params;
+
+      const result = await usersCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            isBlocked: false,
+          },
+        },
+      );
+
+      res.send(result);
+    });
   } catch (e) {
     console.log(e);
   }
