@@ -32,6 +32,8 @@ async function run() {
     const allRecipeCollection = db.collection("allRecipe");
     const usersCollection = cookWorldUsers.collection("user");
 
+    const featuredRecipesCollection = db.collection("featuredRecipes");
+
     // get all recipe data
     app.get("/recipes", async (req, res) => {
       const result = await allRecipeCollection.find().toArray();
@@ -483,6 +485,89 @@ async function run() {
       );
 
       res.send(result);
+    });
+
+    // manage recipe for admin api
+    app.get("/admin/recipes", async (req, res) => {
+      const recipes = await allRecipeCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .toArray();
+
+      res.send(recipes);
+    });
+
+    // add delete recipe for admin api
+    app.delete("/admin/recipes/:id", async (req, res) => {
+      const { id } = req.params;
+
+      const result = await allRecipeCollection.deleteOne({
+        _id: new ObjectId(id),
+      });
+
+      res.send({
+        success: result.deletedCount > 0,
+        message:
+          result.deletedCount > 0
+            ? "Recipe deleted successfully"
+            : "Recipe not found",
+      });
+    });
+
+    // recipe feature add and delete toggle
+    app.patch("/recipes/:id/feature", async (req, res) => {
+      const { id } = req.params;
+
+      const featured = await featuredRecipesCollection.findOne({
+        recipeId: id,
+      });
+
+      // Already featured → Remove
+      if (featured) {
+        await featuredRecipesCollection.deleteOne({
+          recipeId: id,
+        });
+
+        return res.send({
+          success: true,
+          featured: false,
+          message: "Recipe removed from featured",
+        });
+      }
+
+      // Not featured → Add
+      const recipe = await allRecipeCollection.findOne({
+        _id: new ObjectId(id),
+      });
+
+      if (!recipe) {
+        return res.status(404).send({
+          success: false,
+          message: "Recipe not found",
+        });
+      }
+
+      await featuredRecipesCollection.insertOne({
+        recipeId: id,
+        ...recipe,
+        featuredAt: new Date(),
+      });
+
+      res.send({
+        success: true,
+        featured: true,
+        message: "Recipe added to featured",
+      });
+    });
+
+    // get feature recipes
+    app.get("/featured-recipes", async (req, res) => {
+      const recipes = await featuredRecipesCollection
+        .find()
+        .sort({ featuredAt: -1 })
+        .toArray();
+
+      res.send(recipes);
     });
   } catch (e) {
     console.log(e);
