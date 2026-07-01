@@ -4,6 +4,7 @@ const app = express();
 const cors = require("cors");
 const dotenv = require("dotenv");
 const { MongoClient, ObjectId } = require("mongodb");
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 
 app.use(cors());
 app.use(express.json());
@@ -14,6 +15,26 @@ const uri = process.env.MONGODB_URI;
 const port = process.env.PORT;
 
 const client = new MongoClient(uri);
+
+const  JWKS = createRemoteJWKSet(
+  new URL("https://cook-world-five.vercel.app/api/auth/jwks" || "http://localhost:3000/api/auth/jwks")
+)
+const verifyJWT = async (req, res, next) => {
+  const authHeader = req.headers.Authorization || req.headers.authorization;
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) {
+    return res.status(401).send({ message: "Unauthorized access" });
+  }
+
+  try {
+    const { payload } = await jwtVerify(token, JWKS);
+    next();
+  } catch (error) {
+    return res.status(403).send({ message: "Forbidden access" });
+  }
+  
+};
+
 
 app.get("/", (req, res) => {
   res.send("Hello Developers!");
@@ -31,7 +52,6 @@ async function run() {
     const reportsCollection = db.collection("reportsRecipes");
     const allRecipeCollection = db.collection("allRecipe");
     const usersCollection = cookWorldUsers.collection("user");
-
     const featuredRecipesCollection = db.collection("featuredRecipes");
 
     // get all recipe data
@@ -42,18 +62,18 @@ async function run() {
 
     // get recipe with id
     app.get("/recipes/:id", async (req, res) => {
-      const id = req.params.id;
+      const id = req.params.id
       const result = await allRecipeCollection.findOne({
         _id: new ObjectId(id),
       });
       res.send(result);
     });
 
+
     // post recipe
-    app.post("/recipes", async (req, res) => {
+    app.post("/post-recipes", verifyJWT, async (req, res) => {
       const recipe = req.body;
       const email = recipe.authorEmail;
-
       // User find
       const user = await usersCollection.findOne({ email });
 
@@ -77,18 +97,16 @@ async function run() {
     });
 
     // get my-recipe
-    app.get("/my-recipes", async (req, res) => {
+    app.get("/my-recipes", verifyJWT, async (req, res) => {
       const email = req.query.email;
-
       const result = await allRecipeCollection
         .find({ authorEmail: email })
         .toArray();
-
       res.send(result);
     });
 
     // delete my-recipe
-    app.delete("/recipes/:id", async (req, res) => {
+    app.delete("/recipes/:id", verifyJWT, async (req, res) => {
       const id = req.params;
       const result = await allRecipeCollection.deleteOne({
         _id: new ObjectId(id),
@@ -98,7 +116,7 @@ async function run() {
     });
 
     //update my-recipe
-    app.patch("/recipes/:id", async (req, res) => {
+    app.patch("/recipes/:id", verifyJWT, async (req, res) => {
       const { id } = req.params;
       const updateData = req.body;
 
@@ -287,7 +305,7 @@ async function run() {
     });
 
     // my-favorite
-    app.get("/my-favorites", async (req, res) => {
+    app.get("/my-favorites", verifyJWT, async (req, res) => {
       const { userEmail } = req.query;
 
       const favorites = await recipeFavoritesCollection
@@ -306,7 +324,7 @@ async function run() {
     });
 
     // purchases recipe
-    app.get("/my-purchases", async (req, res) => {
+    app.get("/my-purchases", verifyJWT, async (req, res) => {
       const { userEmail } = req.query;
 
       const purchases = await recipePurchasesCollection
