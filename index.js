@@ -36,7 +36,6 @@ const verifyJWT = async (req, res, next) => {
     req.user = payload;
     next();
   } catch (error) {
-    console.error("JWT Verification Error:", error); // Debugging line
     return res.status(403).send({ message: "Forbidden access" });
   }
 };
@@ -71,8 +70,6 @@ async function run() {
         res.status(500).send({ message: err.message });
       }
     });
-
-    console.log("MongoDB connected successfully");
 
     // get recipe with id
     app.get("/recipes/:id", async (req, res) => {
@@ -145,7 +142,7 @@ async function run() {
     });
 
     // update/edit my-recipe
-    app.patch("/recipes/:id", verifyJWT, async (req, res) => {
+    app.patch("/recipes/:id", async (req, res) => {
       try {
         const { id } = req.params;
         const updateData = req.body;
@@ -466,7 +463,7 @@ async function run() {
     });
 
     // admin dashboard overview api
-    app.get("/admin/dashboard", async (req, res) => {
+    app.get("/admin/dashboard", verifyJWT, async (req, res) => {
       try {
         const totalUsers = await usersCollection.countDocuments();
         const totalRecipes = await allRecipeCollection.countDocuments();
@@ -487,7 +484,7 @@ async function run() {
     });
 
     // admin users list api
-    app.get("/admin/users", async (req, res) => {
+    app.get("/admin/users", verifyJWT, async (req, res) => {
       try {
         const users = await usersCollection
           .find()
@@ -534,7 +531,7 @@ async function run() {
     });
 
     // manage recipe for admin api
-    app.get("/admin/recipes", async (req, res) => {
+    app.get("/admin/recipes", verifyJWT, async (req, res) => {
       try {
         const recipes = await allRecipeCollection
           .find()
@@ -547,7 +544,7 @@ async function run() {
     });
 
     // delete recipe for admin api
-    app.delete("/admin/recipes/:id", async (req, res) => {
+    app.delete("/admin/recipes/:id", verifyJWT, async (req, res) => {
       try {
         const { id } = req.params;
         if (!ObjectId.isValid(id))
